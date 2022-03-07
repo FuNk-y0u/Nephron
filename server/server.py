@@ -19,12 +19,19 @@ PUSH = "push"
 PULL = "pull"
 CLIENTS = "clients"
 
+class Packet:
+	def __init__(self, id, offset, data):
+		self.id = id
+		self.offset = offset 
+		self.data = data.encode(FORMAT)
+
 class Server:
 	def __init__(self):
 		self.__create_server()
 		self.running = True
 		self.online_cons  = []
 		self.packets = []
+		self.data_tracker = {}
 	
 	def __create_server(self):
 		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
