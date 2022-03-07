@@ -1,6 +1,10 @@
+# TODO: Make the data pass through server to the other clients
+# or Make server as a bridget between users
+
 import socket
 import pickle
 import threading
+import random
 import time
 
 IP	 = "127.0.0.1"
@@ -19,33 +23,39 @@ class Server:
 	def __init__(self):
 		self.__create_server()
 		self.running = True
-		self.user_offset = 0
 		self.online_cons  = []
-		self.online_users = {CLIENTS: {}} # TODO: Maybe change to dictionary when usernames are indroduced
+		self.packets = []
 	
 	def __create_server(self):
 		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.server.bind((IP, PORT))
-
-	def __handle_client(self, user_offset, conn, addr):
+	
+	def __remove_client(self, conn):
+		self.online_cons.remove(conn)
+	
+	def __packet_handler(self):
 		while True:
-			time.sleep(0.5)
+			print(self.packets)
+			packets = self.packets.copy()
+			for packet in packets:
+				conn = random.choice(self.online_cons)
+				conn.send(pickle.dumps(packet))
+				self.packets.remove(packet)
+
+	def __handle_client(self, conn, addr):
+		while True:
 			try:
 				data = conn.recv(BUFFER)
 				if not data:
-					self.online_users[CLIENTS].pop(user_offset)
-					self.online_cons.remove(conn)
-					for i in self.online_cons:
-						i.send(pickle.dumps(self.online_users))
+					self.__remove_cons(conn)
 					break
-			except ConnectionResetError:
-				self.online_users[CLIENTS].pop(user_offset)
-				self.online_cons.remove(conn)
-				for i in self.online_cons:
-					i.send(pickle.dumps(self.online_users))
-				break
 
+				packet = pickle.loads(data)
+				self.packets.append(packet)
+			except ConnectionResetError:
+				self.__remove_cons(conn)
+				break
 		conn.close()
 	
 	def run(self):
@@ -58,18 +68,11 @@ class Server:
 			# Addding the new user to group
 			self.online_cons.append(conn)
 
-			conn.send(f"{self.user_offset}".encode(FORMAT))
-			client_addr = pickle.loads(conn.recv(BUFFER))
+			cli_handler_thread = threading.Thread(target=self.__handle_client, args=(conn, addr))
+			cli_handler_thread.start()
 
-			self.online_users[CLIENTS].update({self.user_offset: client_addr})
-			for i in self.online_cons:
-				i.send(pickle.dumps(self.online_users))
-
-			print(self.online_users)
-
-			new_thread = threading.Thread(target=self.__handle_client, args=(self.user_offset, conn, addr))
-			new_thread.start()
-			self.user_offset += 1
+			packet_handler_thread = threading.Thread(target=self.__packet_handler)
+			packet_handler_thread.start()
 
 if __name__ == "__main__":
 	server = Server()
