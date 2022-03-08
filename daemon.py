@@ -14,7 +14,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.connect(SV_ADDR)
 
 BUFFER = 1024
-PACKET_SIZE = 46080
+PACKET_SIZE = 61440
 FORMAT = "utf-8"
 
 # TOKENS
@@ -23,6 +23,7 @@ PACKET = "packet"
 PUSH = "push"
 PULL = "pull"
 CLIENTS = "clients"
+PACKETID = "packetid"
 
 class Packet:
 	def __init__(self, id, offset, data):
@@ -35,9 +36,12 @@ packets = []
 # Listeners
 def server_listener():
 	while True:
+		print("TEST 1")
 		data = server.recv(BUFFER)
+		print("TEST 2")
 		if data:
 			packets.append(pickle.loads(data))
+			print(packets)
 
 # Packet sender
 def send_packet(packet):
@@ -76,8 +80,23 @@ def send_file(file):
 	# Choping the file into chunks
 	chunk = chop_file(file_data)	
 	
+	packet_id = random.randint(0, 9999)
+
 	#TODO: Create packets from the chunk and send to server
-	print(chunk)
+	print(packet_id)
+	print(len(chunk))
+	
+	for i in range(0,len(chunk)):
+		packet = {PACKET: "sample.txt",PUSH: packet_id,DATA: chunk[i]}
+		packet_id += 1
+		send_packet(packet)
+		print(f"PACKAGE SENT! #{packet_id}")
+		time.sleep(0.5)
+
+
+
+
+	
 
 if __name__ == "__main__":
 	sv_listen_thread = threading.Thread(target = server_listener)
